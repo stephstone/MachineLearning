@@ -1,0 +1,50 @@
+# Practical Machine Learning: Peer Assessment: Predicting accuracy of barbell lifts using accelerometer data
+
+```{r global_options}
+knitr::opts_chunk$set(fig.height=4, fig.path='figure/',
+                      echo=TRUE, warning=FALSE, message=FALSE)
+```
+
+## Synopsis
+
+Below is an example of using the Caret package in R to train data and predict the type of barbell lift performed by using data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants (information is available from the website here: http://groupware.les.inf.puc-rio.br/har).  A random forest approach was used on a training, test, and validation data set using cross validation to make the predictions which were > 99% accurate in the test set, and 100% correct in quiz 4.
+
+## Data Processing
+
+```{r eval}
+library(caret)
+quiz <- read.csv("pml-testing.csv",na.strings=c("","NA","#DIV/0!"))
+data <- read.csv("pml-training.csv",na.strings=c("","NA","#DIV/0!"))
+inTrain <- createDataPartition(y=data$classe,p=.7,list=FALSE)
+data <- data[, colSums(is.na(data)) < 0.5*nrow(data)]
+qdata <- quiz[, colSums(is.na(quiz)) < 0.5*nrow(quiz)]
+training <- data[inTrain,]
+testing <- data[-inTrain,]
+training <- training[,-c(1:7)]
+testing <- testing[,-c(1:7)]
+qdata <- qdata[,-c(1:7)]
+```
+
+The training set was split into 70% training and 30% test.  The data required much cleaning--many of the 160 variables in the data set were populated with >50% NA values which were removed.  In addition, the first 7 columns of the data were removed as they were deemed not relevant to the prediction model (subject name, timestamp, etc).  The resulting data contained 52 predictors.
+
+### Training Data & Results
+
+The training data was trained using a random forest model and cross validation using bootstrapping (25 reps).  The training set error was 0.72% which is good (low).  To get the out-of-sample error, the model was used to predict outcomes for the test data.  In this case, accuracy was 99.4% (very good).  The model was then used on the validation data set (the .csv 'test' set) to produce quiz answers, which were correct.
+
+```{r echo = TRUE, eval = FALSE}
+modFit2 <- train(classe~.,method="rf",data=training,na.action=na.exclude)
+modFit2
+modFit2$finalModel
+```
+
+```{r}
+library(caret)
+mymodel <- get(load(file="/Users/steph/Desktop/coursera/modFitrf.Rdata"))
+Pred <- predict(mymodel,testing)
+testing$predRight <- Pred==testing$classe
+confusionMatrix(testing$classe,predict(mymodel,testing))
+counts <- table(testing$predRight,testing$classe)
+barplot(counts,main="Prediction accuracy by classe",
+  xlab="class of lift", ylab="num_obs",col=c("darkblue","red"),
+ 	legend = rownames(counts), beside=TRUE)
+```
